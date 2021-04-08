@@ -46,7 +46,6 @@ so, delete this exception statement from your version.
 #include "v4l.h"
 #include "linuxfb.h"
 #include "uinput.h"
-#include "macosx.h"
 #include "screen.h"
 #include "xi2_devices.h"
 
@@ -2761,13 +2760,6 @@ static void modifier_tweak_keyboard(rfbBool down, rfbKeySym keysym,
 
 void initialize_keyboard_and_pointer(void) {
 
-#ifdef MACOSX
-	if (macosx_console) {
-		initialize_remap(remap_file);
-		initialize_pointer_map(pointer_remap);
-	}
-#endif
-
 	RAWFB_RET_VOID
 
 	if (use_modifier_tweak) {
@@ -2928,8 +2920,6 @@ static void pipe_keyboard(rfbBool down, rfbKeySym keysym, rfbClientPtr client) {
 		console_key_command(down, keysym, client);
 	} else if (pipeinput_int == PIPEINPUT_UINPUT) {
 		uinput_key_command(down, keysym, client);
-	} else if (pipeinput_int == PIPEINPUT_MACOSX) {
-		macosx_key_command(down, keysym, client);
 	} else if (pipeinput_int == PIPEINPUT_VNC) {
 		vnc_reflect_send_key((uint32_t) keysym, down);
 	}

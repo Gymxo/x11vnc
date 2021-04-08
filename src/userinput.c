@@ -49,8 +49,6 @@ so, delete this exception statement from your version.
 #include "xrandr.h"
 #include "8to24.h"
 #include "unixpw.h"
-#include "macosx.h"
-#include "macosxCGS.h"
 #include "cursor.h"
 #include "screen.h"
 #include "connections.h"
@@ -145,11 +143,6 @@ int get_wm_frame_pos(int *px, int *py, int *x, int *y, int *w, int *h,
 	unsigned int mask;
 #endif
 
-#ifdef MACOSX
-	if (macosx_console) {
-		return macosx_get_wm_frame_pos(px, py, x, y, w, h, frame, win);
-	}
-#endif
 
 	RAWFB_RET(0)
 
@@ -3275,11 +3268,6 @@ if (db2) fprintf(stderr, "sw: %d/%lx\n", k, swin);
 			}
 
 			/* skip some unwanted cases: */
-#ifndef MACOSX
-			if (swin == None) {
-				continue;
-			}
-#endif
 			if (boff <= (int) swin && (int) swin < boff + bwin) {
 				;	/* blackouts */
 			} else if (! stack_list[k].fetched ||
@@ -4182,74 +4170,10 @@ if (ncdb) fprintf(stderr, "do_COPY: %.4f -- post_portion done.\n", dnow() - ntim
 }
 
 void check_macosx_iconify(Window orig_frame, Window frame, int flush) {
-#ifdef MACOSX
-	static double last = 0.0;
-	double now;
-	int j, m = 5, idx = -1, ok = 0, unmapped = 0;
-
-	if (! macosx_console) {
-		return;
-	}
-
-	now = dnow();
-	if (now < last + 0.3) {
-		return;
-	}
-	last = now;
-
-	if (ncache > 0 && orig_frame != None) {
-		idx = lookup_win_index(orig_frame);
-		if (idx >= 0) {
-			if (cache_list[idx].map_state == IsUnmapped) {
-if (0) fprintf(stderr, "FAW orig_frame unmapped.\n");
-				unmapped = 1;
-				m = 3;
-			}
-		}
-	}
-
-	if (unmapped) {
-		;
-	} else if (orig_frame && macosxCGS_follow_animation_win(orig_frame, -1, 0)) {
-		if (0) fprintf(stderr, "FAW orig_frame %d\n", (int) orig_frame);
-	} else if (0 && frame && macosxCGS_follow_animation_win(frame, -1, 0)) {
-		if (0) fprintf(stderr, "FAW frame      %d\n", (int) frame);
-	}
-	for (j=0; j<m; j++) {
-		macosxCGS_get_all_windows();
-		if (macosx_checkevent(NULL)) {
-			ok = 1;
-			if (0) fprintf(stderr, "Check Event    1\n");
-		} else {
-			if (0) fprintf(stderr, "Check Event    0\n");
-		}
-		if (ok) {
-			break;
-		}
-		usleep(10 * 1000);
-	}
-	if (ok) {
-		if (flush) {
-			fb_push_wait(0.1, FB_COPY|FB_MOD);
-		}
-		check_ncache(0, 2);
-	}
-#else
 	if (!orig_frame || !frame || !flush) {}
-#endif
 }
 
 void check_macosx_click_frame(void) {
-#ifdef MACOSX
-	if (macosx_console) {
-if (0) fprintf(stderr, "macosx_click_frame: 0x%x\n", macosx_click_frame);
-		check_macosx_iconify(macosx_click_frame, None, 0);
-		macosx_click_frame = None;
-		if (button_mask && !macosx_checkevent(NULL)) {
-			check_macosx_iconify(None, None, 0);
-		}
-	}
-#endif
 }
 
 int clipped(int idx);
@@ -4369,15 +4293,7 @@ int check_wireframe(void) {
 	if (unixpw_in_progress) return 0;
 	if (copyrect_drag_delay) {}
 
-#ifdef MACOSX
-	if (macosx_console) {
-		;
-	} else {
-		RAWFB_RET(0)
-	}
-#else
 	RAWFB_RET(0)
-#endif
 
 	if (nofb) {
 		return 0;
@@ -4421,9 +4337,6 @@ if (db) fprintf(stderr, "\n*** button down!!  x: %d  y: %d\n", cursor_x, cursor_
 	if (! get_wm_frame_pos(&px, &py, &x, &y, &w, &h, &frame, NULL)) {
 if (db) fprintf(stderr, "NO get_wm_frame_pos-1: 0x%lx\n", frame);
 		X_UNLOCK;
-#ifdef MACOSX
-		check_macosx_click_frame();
-#endif
 		return 0;
 	}
 	X_UNLOCK;
@@ -4469,9 +4382,6 @@ if (db) fprintf(stderr, "OUTSIDE CLIPSHIFT\n");
 	}
 	if (! try_it) {
 if (db) fprintf(stderr, "INTERIOR\n");
-#ifdef MACOSX
-		check_macosx_click_frame();
-#endif
 		return 0;
 	}
 
@@ -4603,12 +4513,7 @@ if (db) fprintf(stderr, "INTERIOR\n");
 			/* what was this for? */
 			Window frame;
 			int px, py, x, y, w, h;
-#ifdef MACOSX
-			if (macosx_console) {
-				macosx_get_cursor_pos(&x, &y);
-			}
-			else
-#endif
+
 			get_wm_frame_pos(&px, &py, &x, &y, &w, &h, &frame, NULL);
 #endif
 		}
@@ -5640,13 +5545,7 @@ int check_user_input(double dt, double dtr, int tile_diffs, int *cnt) {
 			return 1;	/* short circuit watch_loop */
 		}
 	}
-#ifdef MACOSX
-	if (! macosx_console) {
-		RAWFB_RET(0)
-	}
-#else
 	RAWFB_RET(0)
-#endif
 
 	if (use_xrecord) {
 		int rc = check_xrecord();
@@ -5783,11 +5682,6 @@ void snapshot_cache_list(int free_only, double allowed_age) {
 	cache_list_num = 0;
 	last_free = now;
 
-#ifdef MACOSX
-	if (! macosx_console) {
-		RAWFB_RET_VOID
-	}
-#else
 	RAWFB_RET_VOID
 #endif
 
@@ -5865,13 +5759,7 @@ void quick_snap(Window *wins, int *size) {
 	Window r, w;
 	Window *list;
 
-#ifdef MACOSX
-	if (1 || ! macosx_console) {
-		RAWFB_RET_VOID
-	}
-#else
 	RAWFB_RET_VOID
-#endif
 
 
 #if NO_X11 && !defined(MACOSX)
@@ -7008,23 +6896,7 @@ double restore_delay1 = 0.05;
 static double dtA, dtB;
 
 int valid_wr(int idx, Window win, XWindowAttributes *attr) {
-#ifdef MACOSX
-	if (macosx_console) {
-		/* this is all to avoid animation changing WxH+X+Y... */
-		if (idx >= 0) {
-			int rc = valid_window(win, attr, 1);
-			attr->x = cache_list[idx].x;
-			attr->y = cache_list[idx].y;
-			attr->width = cache_list[idx].width;
-			attr->height = cache_list[idx].height;
-			return rc;
-		} else {
-			return valid_window(win, attr, 1);
-		}
-	}
-#else
 	if (!idx) {}
-#endif
 	return valid_window(win, attr, 1);
 }
 
@@ -7734,15 +7606,6 @@ if (sync && ncdb) fprintf(stderr, "XSELECTINPUT: 0x%lx  sync=%d err=%d/%d\n", w,
 }
 
 Bool xcheckmaskevent(Display *d, long mask, XEvent *ev) {
-#ifdef MACOSX
-	if (macosx_console) {
-		if (macosx_checkevent(ev)) {
-			return True;
-		} else {
-			return False;
-		}
-	}
-#endif
 	RAWFB_RET(False);
 
 #if NO_X11
@@ -8916,25 +8779,15 @@ int check_ncache(int reset, int mode) {
 
 	if (unixpw_in_progress) return -1;
 
-#ifdef MACOSX
-	if (! macosx_console) {
-		RAWFB_RET(-1)
-	}
-	if (! screen) {
-		return -1;
-	}
-#else
 	RAWFB_RET(-1)
 	if (! screen || ! dpy) {
 		return -1;
 	}
-#endif
 
 	now = dnow();
 
 #ifdef NO_NCACHE
 	ncache = 0;
-#endif
 
 	if (reset && (first || cache_list_len == 0)) {
 		return -1;
@@ -9088,19 +8941,6 @@ if (hack_val == 2) {
 	block_stats();
 	hack_val = 1;
 }
-#ifdef MACOSX
-	if (macosx_console) {
-		static double last_all_windows = 0.0;
-		if (! macosx_checkevent(NULL)) {
-			if (now > last_all_windows + 0.05) {
-				macosxCGS_get_all_windows();
-				last_all_windows = dnow();
-			}
-		}
-		/* XXX Y */
-		rootwin = -1;
-	}
-#endif
 
 	n = 0;
 	ttot = 0;
@@ -9871,8 +9711,6 @@ if (ncdb) fprintf(stderr, "----%02d: VisibilityNotify 0x%lx  %3d  state: %s U/P 
 				}
 				if (desktop_change) {
 					;
-				} else if (macosx_console && n_VN_p == 0) {
-					;	/* XXXX not working well yet with UnmapNotify ... */
 				} else if (state == VisibilityUnobscured) {
 					int ok = 1;
 					if (ncache <= 2) {
@@ -10031,18 +9869,6 @@ if (ncdb) fprintf(stderr, "----%02d: MapNotify        0x%lx  %3d\n", ik, win, id
 						STORE(idx, win, attr);
 					}
 
-					if (macosx_console) {
-#ifdef MACOSX
-						macosxCGS_follow_animation_win(win, -1, 1);
-						if (valid_window(win, &attr, 1)) {
-							STORE(idx, win, attr);
-							SCHED(win, 1);
-						}
-						/* XXX Y */
-						if (cache_list[idx].vis_state == -1)  {
-							cache_list[idx].vis_state = VisibilityUnobscured;
-						}
-#endif
 					}
 					X_LOCK;
 					pixels += cache_list[idx].width * cache_list[idx].height;
@@ -10068,11 +9894,6 @@ if (ncdb) fprintf(stderr, "----%02d: UnmapNotify      0x%lx  %3d\n", ik, win, id
 
 				if (idx < 0) {
 					continue;
-				}
-				if (macosx_console) {
-					if (mode == 2) {
-						cache_list[idx].map_state = IsViewable;
-					}
 				}
 
 #if 0
@@ -10194,4 +10015,4 @@ if (ncdb) fprintf(stderr, "\n");
 	return pixels;
 }
 #endif
-
+}

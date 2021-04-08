@@ -1749,6 +1749,7 @@ static void store_homedir_passwd(char *file) {
 
 	str1[0] = '\0';
 	str2[0] = '\0';
+
 	/* storepasswd */
 	if (no_external_cmds || !cmd_ok("storepasswd")) {
 		fprintf(stderr, "-nocmds cannot be used with -storepasswd\n");
@@ -1778,12 +1779,6 @@ static void store_homedir_passwd(char *file) {
 	}
 	if ((p = strchr(str2, '\n')) != NULL) {
 		*p = '\0';
-	}
-	if (8 < strlen(str1)) {
-		/* RFC6143 states: "the password is truncated to eight characters" */
-		/* there's room for ambiguity (characters vs bytes) */
-		fprintf(stderr, "** password exceeds maximum 8 bytes.\n");
-		exit(1);
 	}
 	if (strcmp(str1, str2)) {
 		fprintf(stderr, "** passwords differ.\n");
@@ -3921,56 +3916,6 @@ int main(int argc, char* argv[]) {
 			pipeinput_str = strdup(argv[++i]);
 			continue;
 		}
-		if (!strcmp(arg, "-macnodim")) {
-			macosx_nodimming = 1;
-			continue;
-		}
-		if (!strcmp(arg, "-macnosleep")) {
-			macosx_nosleep = 1;
-			continue;
-		}
-		if (!strcmp(arg, "-macnosaver")) {
-			macosx_noscreensaver = 1;
-			continue;
-		}
-		if (!strcmp(arg, "-macnowait")) {
-			macosx_wait_for_switch = 0;
-			continue;
-		}
-		if (!strcmp(arg, "-macwheel")) {
-			CHECK_ARGC
-			macosx_mouse_wheel_speed = atoi(argv[++i]);
-			continue;
-		}
-		if (!strcmp(arg, "-macnoswap")) {
-			macosx_swap23 = 0;
-			continue;
-		}
-		if (!strcmp(arg, "-macnoresize")) {
-			macosx_resize = 0;
-			continue;
-		}
-		if (!strcmp(arg, "-maciconanim")) {
-			CHECK_ARGC
-			macosx_icon_anim_time = atoi(argv[++i]);
-			continue;
-		}
-		if (!strcmp(arg, "-macmenu")) {
-			macosx_ncache_macmenu = 1;
-			continue;
-		}
-		if (!strcmp(arg, "-macuskbd")) {
-			macosx_us_kbd = 1;
-			continue;
-		}
-		if (!strcmp(arg, "-macnoopengl")) {
-			macosx_no_opengl = 1;
-			continue;
-		}
-		if (!strcmp(arg, "-macnorawfb")) {
-			macosx_no_rawfb = 1;
-			continue;
-		}
 		if (!strcmp(arg, "-gui")) {
 			launch_gui = 1;
 			if (i < argc-1) {
@@ -4244,34 +4189,6 @@ int main(int argc, char* argv[]) {
 		launch_gui = 0;
 	}
 
-#ifdef MACOSX
-	if (! use_dpy) {
-		/* we need this for gui since no X properties */
-		if (!client_connect_file && !client_connect) {
-			char *user = get_user_name();
-			char *str = (char *) malloc(strlen(user) + strlen("/tmp/x11vnc-macosx-remote.") + 1);
-			struct stat sb;
-			sprintf(str, "/tmp/x11vnc-macosx-remote.%s", user);
-			if (!remote_cmd && !query_cmd) {
-				unlink(str);
-				if (stat(str, &sb) != 0) {
-					int fd = open(str, O_WRONLY|O_EXCL|O_CREAT, 0600);
-					if (fd >= 0) {
-						close(fd);
-						client_connect_file = str;
-					}
-				}
-			} else {
-				client_connect_file = str;
-			}
-			if (client_connect_file) {
-				if (!got_inetd) {
-					rfbLog("MacOS X: set -connect file to %s\n", client_connect_file);
-				}
-			}
-		}
-	}
-#endif
 	if (got_rfbport_str != NULL && !strcasecmp(got_rfbport_str, "prompt")) {
 		char *opts, tport[32];
 
@@ -5087,20 +5004,9 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-#ifdef MACOSX
-	if (use_dpy && !strcmp(use_dpy, "console")) {
-		;
-	} else
-#endif
 	if (use_dpy && strcmp(use_dpy, "")) {
 		dpy = XOpenDisplay_wr(use_dpy);
-#ifdef MACOSX
-	} else if (!subwin && getenv("DISPLAY")
-	    && strstr(getenv("DISPLAY"), "/tmp/") ) {
-		/* e.g. /tmp/launch-XlspvM/:0 on leopard */
-		rfbLog("MacOSX: Ignoring $DISPLAY '%s'\n", getenv("DISPLAY"));
-		rfbLog("MacOSX: Use -display $DISPLAY to force it.\n");
-#endif
+
 	} else if (raw_fb_str != NULL && raw_fb_str[0] != '+' && !got_noviewonly) {
 		rfbLog("Not opening DISPLAY in -rawfb mode (force via -rawfb +str)\n");
 		dpy = NULL; /* don't open it. */
@@ -5157,12 +5063,6 @@ int main(int argc, char* argv[]) {
 		}
 #endif
 	}
-
-#ifdef MACOSX
-	if (! dpy && ! raw_fb_str) {
-		raw_fb_str = strdup("console");
-	}
-#endif
 
 	if (! dpy && raw_fb_str) {
 		rfbLog("Continuing without X display in -rawfb mode.\n");
@@ -5704,9 +5604,6 @@ int main(int argc, char* argv[]) {
 		int doit = 0;
 		/* XXX this needs improvement (esp. for remote control) */
 		if (! raw_fb_str || strstr(raw_fb_str, "console") == raw_fb_str) {
-#ifdef MACOSX
-			doit = 1;
-#endif
 		}
 		if (raw_fb_str && strstr(raw_fb_str, "vnc") == raw_fb_str) {
 			doit = 1;
@@ -5924,19 +5821,6 @@ int main(int argc, char* argv[]) {
 			}
 		}
 	}
-
-#ifdef MACOSX
-	if (remote_cmd || query_cmd) {
-		;
-	} else if (macosx_console) {
-		double dt = dnow();
-		copy_screen();
-		dt = dnow() - dt;
-		rfbLog("macosx_console: copied screen in %.3f sec %.1f MB/sec\n",
-		    dt, dpy_x * dpy_y * bpp / (1e+6 * 8 * dt));
-
-	}
-#endif
 
 	if (! quiet) {
 		rfbLog("screen setup finished.\n");

@@ -44,7 +44,6 @@ so, delete this exception statement from your version.
 #include "cleanup.h"
 #include "unixpw.h"
 #include "screen.h"
-#include "macosx.h"
 #include "userinput.h"
 
 /*
@@ -69,7 +68,6 @@ int scan_for_updates(int count_only);
 void rotate_curs(char *dst_0, char *src_0, int Dx, int Dy, int Bpp);
 void rotate_coords(int x, int y, int *xo, int *yo, int dxi, int dyi);
 void rotate_coords_inverse(int x, int y, int *xo, int *yo, int dxi, int dyi);
-void rotate_cursor_coords(int x, int y, int *xo, int *yo, int dxi, int dyi);
 
 static void set_fs_factor(int max);
 static char *flip_ximage_byte_order(XImage *xim);
@@ -321,7 +319,7 @@ static int shm_create(XShmSegmentInfo *shm, XImage **ximg_ptr, int w, int h,
 
 #if HAVE_XSHM
 	shm->shmid = shmget(IPC_PRIVATE,
-	    xim->bytes_per_line * xim->height, IPC_CREAT | 0600);
+	    xim->bytes_per_line * xim->height, IPC_CREAT | 0777);
 
 	if (shm->shmid == -1) {
 		rfbErr("shmget(%s) failed.\n", name);
@@ -580,7 +578,7 @@ static void save_hint(hint_t hint, int loc) {
 
 /*
  * Glue together horizontal "runs" of adjacent changed tiles into one big
- * rectangle change "hint" to be passed to the vnc machinery.
+ * rectangle change "hint" to be passed to the vnc hinery.
  */
 static void hint_updates(void) {
 	hint_t hint;
@@ -1383,41 +1381,6 @@ void rotate_coords(int x, int y, int *xo, int *yo, int dxi, int dyi) {
 	} else if (rotating == ROTATE_270) {
 		*xo = yi;
 		*yo = Dx - xi - 1;
-	}
-}
-
-
-/* 
- rotate cursor coordinates for `rotating` rotation. assumes that dxi and dyi are **not** rotated.
- separate from rotate_coords because it returns incorrect coords for 90, 90y & 270 deg rotations.
-*/
-void rotate_cursor_coords(int x, int y, int *xo, int *yo, int dxi, int dyi) {
-	int xi = x, yi = y;
-
-	if (rotating == ROTATE_NONE) {
-		*xo = xi;
-		*yo = yi;
-	} else if (rotating == ROTATE_X) {
-		*xo = dxi - xi;
-		*yo = yi;
-	} else if (rotating == ROTATE_Y) {
-		*xo = xi;
-		*yo = dyi - yi;
-	} else if (rotating == ROTATE_XY) {
-		*xo = dxi - xi;
-		*yo = dyi - yi;
-	} else if (rotating == ROTATE_90) {
-		*xo = dxi - yi;
-		*yo = xi;
-	} else if (rotating == ROTATE_90X) {
-		*xo = yi;
-		*yo = xi;
-	} else if (rotating == ROTATE_90Y) {
-		*xo = dxi - yi;
-		*yo = dyi - xi;
-	} else if (rotating == ROTATE_270) {
-		*xo = yi;
-		*yo = dyi - xi;
 	}
 }
 
@@ -3249,53 +3212,6 @@ static int scan_display(int ystart, int rescan) {
 
 		/* grab the horizontal scanline from the display: */
 
-#ifndef NO_NCACHE
-/* XXX Y test */
-if (ncache > 0) {
-	int gotone = 0;
-	if (macosx_console) {
-		if (macosx_checkevent(NULL)) {
-			gotone = 1;
-		}
-	} else {
-#if !NO_X11
-		XEvent ev;
-		if (raw_fb_str) {
-			;
-		} else if (XEventsQueued(dpy, QueuedAlready) == 0) {
-			;	/* XXX Y resp */
-		} else if (XCheckTypedEvent(dpy, MapNotify, &ev)) {
-			gotone = 1;
-		} else if (XCheckTypedEvent(dpy, UnmapNotify, &ev)) {
-			gotone = 2;
-		} else if (XCheckTypedEvent(dpy, CreateNotify, &ev)) {
-			gotone = 3;
-		} else if (XCheckTypedEvent(dpy, ConfigureNotify, &ev)) {
-			gotone = 4;
-		} else if (XCheckTypedEvent(dpy, VisibilityNotify, &ev)) {
-			gotone = 5;
-		}
-		if (gotone) {
-			XPutBackEvent(dpy, &ev);
-		}
-#endif
-	}
-	if (gotone) {
-		static int nomsg = 1;
-		if (nomsg) {
-			if (dnowx() > 20) {
-				nomsg = 0;
-			}
-		} else {
-if (ncdb) fprintf(stderr, "\n*** SCAN_DISPLAY CHECK_NCACHE/%d *** %d rescan=%d\n", gotone, y, rescan);
-		}
-		X_UNLOCK;
-		check_ncache(0, 1);
-		X_LOCK;
-	}
-}
-#endif
-
 		XRANDR_SET_TRAP_RET(-1, "scan_display-set");
 		copy_image(scanline, 0, y, 0, 0);
 		XRANDR_CHK_TRAP_RET(-1, "scan_display-chk");
@@ -3371,13 +3287,9 @@ if (ncdb) fprintf(stderr, "\n*** SCAN_DISPLAY CHECK_NCACHE/%d *** %d rescan=%d\n
 		}
 		y += NSCAN;
 	}
-
 	X_UNLOCK;
-
 	return tile_count;
 }
-
-
 int scanlines[NSCAN] = {
 	 0, 16,  8, 24,  4, 20, 12, 28,
 	10, 26, 18,  2, 22,  6, 30, 14,
@@ -3439,18 +3351,8 @@ int scan_for_updates(int count_only) {
 		if (cmap8to24 && scan_count % 1 == 0) {
 			check_for_multivis();
 		}
-#ifdef MACOSX
-		if (macosx_console) {
-			macosx_event_loop();
-		}
-#endif
 		if (use_xdamage) {
 			/* first pass collecting DAMAGE events: */
-#ifdef MACOSX
-			if (macosx_console) {
-				collect_non_X_xdamage(-1, -1, -1, -1, 0);
-			} else 
-#endif
 			{
 				if (rawfb_vnc_reflect) {
 					collect_non_X_xdamage(-1, -1, -1, -1, 0);
@@ -3481,11 +3383,6 @@ int scan_for_updates(int count_only) {
 	 * the unchanged tiles are read in again).
 	 */
 	if (use_xdamage) {
-#ifdef MACOSX
-		if (macosx_console) {
-			;
-		} else 
-#endif
 		{
 			if (rawfb_vnc_reflect) {
 				;

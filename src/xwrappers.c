@@ -38,7 +38,6 @@ so, delete this exception statement from your version.
 #include "xevents.h"
 #include "connections.h"
 #include "cleanup.h"
-#include "macosx.h"
 #include "xi2_devices.h"
 #include "xwrappers.h"
 
@@ -717,22 +716,11 @@ static void copy_raw_fb_24_to_32(XImage *dest, int x, int y, unsigned int w,
 	}
 }
 
-#ifdef MACOSX
-void macosx_copy_opengl(char *, int, int, unsigned int, unsigned int);
-#endif
-
 void copy_raw_fb(XImage *dest, int x, int y, unsigned int w, unsigned int h) {
 	char *src, *dst;
 	unsigned int line;
 	int pixelsize = bpp/8;
 	static int db = -1;
-
-#ifdef MACOSX
-	if (macosx_console && macosx_read_opengl) {
-		macosx_copy_opengl(dest->data, x, y, w, h);
-		return;
-	}
-#endif
 
 	if (xform24to32) {
 		copy_raw_fb_24_to_32(dest, x, y, w, h);
@@ -1641,12 +1629,6 @@ Status XQueryTree_wr(Display *display, Window w, Window *root_return,
     Window *parent_return, Window **children_return,
     unsigned int *nchildren_return) {
 
-#ifdef MACOSX
-	if (macosx_console) {
-		return macosx_xquerytree(w, root_return, parent_return,
-		    children_return, nchildren_return);
-	}
-#endif
 #if NO_X11
 	if (!display || !w || !root_return || !parent_return
 	    || !children_return || !nchildren_return) {}

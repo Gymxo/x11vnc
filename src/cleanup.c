@@ -44,8 +44,6 @@ so, delete this exception statement from your version.
 #include "sslcmds.h"
 #include "sslhelper.h"
 #include "connections.h"
-#include "macosx.h"
-#include "macosxCG.h"
 #include "avahi.h"
 #include "screen.h"
 #include "xrecord.h"
@@ -172,18 +170,6 @@ void clean_up_exit(int ret) {
 		kill(ssh_pid, SIGTERM);
 		ssh_pid = 0;
 	}
-
-#ifdef MACOSX
-	if (client_connect_file) {
-		if (strstr(client_connect_file, "/tmp/x11vnc-macosx-remote")
-		    == client_connect_file) {
-			unlink(client_connect_file);
-		}
-	}
-	if (macosx_console) {
-		macosxCG_fini();
-	}
-#endif
 
 	if (pipeinput_fh != NULL) {
 		pclose(pipeinput_fh);
@@ -492,7 +478,7 @@ static void crash_shell(void) {
 		}
 
 		if (*str == 'q' && *(str+1) == '\0') {
-			fprintf(stderr, "quitting.\n");
+			fprintf(stderr, "quiting.\n");
 			return;
 		} else if (*str == 'h' && *(str+1) == '\0') {
 			crash_shell_help();

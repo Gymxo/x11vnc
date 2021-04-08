@@ -54,11 +54,6 @@ so, delete this exception statement from your version.
 #include <linux/input.h>
 #include <linux/uinput.h>
 
-#ifndef input_event_sec
-#define input_event_sec time.tv_sec
-#define input_event_usec time.tv_usec
-#endif
-
 #if !defined(EV_SYN) || !defined(SYN_REPORT)
 #undef UINPUT_OK
 #endif
@@ -715,7 +710,6 @@ void parse_uinput_str(char *in) {
 static void ptr_move(int dx, int dy) {
 #ifdef UINPUT_OK
 	struct input_event ev;
-	struct timeval tval;
 	int d = direct_rel_fd < 0 ? fd : direct_rel_fd;
 
 	if (injectable && strchr(injectable, 'M') == NULL) {
@@ -726,9 +720,7 @@ static void ptr_move(int dx, int dy) {
 
 	if (db) fprintf(stderr, "ptr_move(%d, %d) fd=%d\n", dx, dy, d);
 
-	gettimeofday(&tval, NULL);
-	ev.input_event_sec = tval.tv_sec;
-	ev.input_event_usec = tval.tv_usec;
+	gettimeofday(&ev.time, NULL);
 	ev.type = EV_REL;
 	ev.code = REL_Y;
 	ev.value = dy;
@@ -763,7 +755,6 @@ static void apply_tslib(int *x, int *y) {
 static void ptr_abs(int x, int y, int p) {
 #ifdef UINPUT_OK
 	struct input_event ev;
-	struct timeval tval;
 	int x0, y0;
 	int d = direct_abs_fd < 0 ? fd : direct_abs_fd;
 
@@ -782,9 +773,7 @@ static void ptr_abs(int x, int y, int p) {
 
 	if (db) fprintf(stderr, "ptr_abs(%d, %d => %d %d, p=%d) fd=%d\n", x0, y0, x, y, p, d);
 
-	gettimeofday(&tval, NULL);
-	ev.input_event_sec = tval.tv_sec;
-	ev.input_event_usec = tval.tv_usec;
+	gettimeofday(&ev.time, NULL);
 	ev.type = EV_ABS;
 	ev.code = ABS_Y;
 	ev.value = y;
@@ -961,7 +950,6 @@ if (0) {usleep(100*1000) ;}
 static void button_click(int down, int btn) {
 #ifdef UINPUT_OK
 	struct input_event ev;
-	struct timeval tval;
 	int d = direct_btn_fd < 0 ? fd : direct_btn_fd;
 
 	if (injectable && strchr(injectable, 'B') == NULL) {
@@ -971,9 +959,7 @@ static void button_click(int down, int btn) {
 	if (db) fprintf(stderr, "button_click: btn %d %s fd=%d\n", btn, down ? "down" : "up", d);
 
 	memset(&ev, 0, sizeof(ev));
-	gettimeofday(&tval, NULL);
-	ev.input_event_sec = tval.tv_sec;
-	ev.input_event_usec = tval.tv_usec;
+	gettimeofday(&ev.time, NULL);
 	ev.type = EV_KEY;
 	ev.value = down;
 
@@ -1244,7 +1230,6 @@ void uinput_pointer_command(int mask, int x, int y, rfbClientPtr client) {
 void uinput_key_command(int down, int keysym, rfbClientPtr client) {
 #ifdef UINPUT_OK
 	struct input_event ev;
-	struct timeval tval;
 	int scancode;
 	allowed_input_t input;
 	int d = direct_key_fd < 0 ? fd : direct_key_fd;
@@ -1268,9 +1253,7 @@ void uinput_key_command(int down, int keysym, rfbClientPtr client) {
 	if (db) fprintf(stderr, "uinput_key_command: %d -> %d %s fd=%d\n", keysym, scancode, down ? "down" : "up", d);
 
 	memset(&ev, 0, sizeof(ev));
-	gettimeofday(&tval, NULL);
-	ev.input_event_sec = tval.tv_sec;
-	ev.input_event_usec = tval.tv_usec;
+	gettimeofday(&ev.time, NULL);
 	ev.type = EV_KEY;
 	ev.code = (unsigned char) scancode;
 	ev.value = down;

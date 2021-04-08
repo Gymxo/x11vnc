@@ -49,8 +49,6 @@ so, delete this exception statement from your version.
 #include "xwrappers.h"
 #include "xevents.h"
 #include "win_utils.h"
-#include "macosx.h"
-#include "macosxCG.h"
 #include "userinput.h"
 #include "pointer.h"
 #include "xrandr.h"
@@ -954,11 +952,6 @@ void client_gone(rfbClientPtr client) {
 		CLIENT_UNLOCK;
 		clean_up_exit(0);
 	}
-#ifdef MACOSX
-	if (macosx_console && client_count == 0) {
-		macosxCG_refresh_callback_off();
-	}
-#endif
 	CLIENT_UNLOCK;
 }
 
@@ -4091,11 +4084,6 @@ enum rfbNewClientAction new_client(rfbClientPtr client) {
 		 */
 		autorepeat(0, 0);
 	}
-#ifdef MACOSX
-	if (macosx_console && client_count == 1) {
-		macosxCG_refresh_callback_on();
-	}
-#endif
 	if (use_solid_bg && client_count == 1) {
 		solid_bg(0);
 	}

@@ -757,7 +757,7 @@ int unixpw_list_match(char *user) {
 }
 
 int crypt_verify(char *user, char *pass) {
-#if !defined UNIXPW_CRYPT || !defined HAVE_LIBCRYPT
+#ifndef UNIXPW_CRYPT
 	return 0;
 #else
 	struct passwd *pwd;

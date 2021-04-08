@@ -830,10 +830,6 @@ int remote_control_access_ok(void) {
 #endif	/* NO_X11 */
 }
 
-#ifdef MACOSX
-void macosxCG_keycode_inject(int down, int keycode);
-#endif
-
 int rc_npieces = 0;
 
 /*
@@ -4396,15 +4392,6 @@ char *process_remote_cmd(char *cmd, int stringonly) {
 		rfbLog("remote_cmd: insert keycode %d down=%d\n", kc, down);
 
 		if (macosx_console) {
-#ifdef MACOSX
-			if (down == -1) {
-				macosxCG_keycode_inject(1, kc);
-				usleep(50*1000);
-				macosxCG_keycode_inject(0, kc);
-			} else {
-				macosxCG_keycode_inject(down, kc);
-			}
-#endif
 		} else {
 			X_LOCK;
 			if (down == -1) {
@@ -5584,124 +5571,6 @@ char *process_remote_cmd(char *cmd, int stringonly) {
 		}
 		crash_debug = 0;
 		rfbLog("set crash_debug to: %d\n", crash_debug);
-		goto done;
-	}
-	if (!strcmp(p, "macnosaver")) {
-		if (query) {
-			snprintf(buf, bufn, "ans=%s:%d", p, macosx_noscreensaver); goto qry;
-		}
-		rfbLog("remote_cmd: turn on macnosaver.\n");
-		macosx_noscreensaver = 1;
-		goto done;
-	}
-	if (!strcmp(p, "macsaver") || !strcmp(p, "nomacnosaver")) {
-		if (query) {
-			snprintf(buf, bufn, "ans=%s:%d", p, !macosx_noscreensaver); goto qry;
-		}
-		rfbLog("remote_cmd: turn off macnosaver.\n");
-		macosx_noscreensaver = 0;
-		goto done;
-	}
-	if (!strcmp(p, "macnowait")) {
-		if (query) {
-			snprintf(buf, bufn, "ans=%s:%d", p, !macosx_wait_for_switch); goto qry;
-		}
-		rfbLog("remote_cmd: disable macosx_wait_for_switch.\n");
-		macosx_wait_for_switch = 0;
-		goto done;
-	}
-	if (!strcmp(p, "macwait") || !strcmp(p, "nomacnowait")) {
-		if (query) {
-			snprintf(buf, bufn, "ans=%s:%d", p, macosx_wait_for_switch); goto qry;
-		}
-		rfbLog("remote_cmd: enable macosx_wait_for_switch.\n");
-		macosx_wait_for_switch = 1;
-		goto done;
-	}
-	if (strstr(p, "macwheel") == p) {
-		COLON_CHECK("macwheel:")
-		if (query) {
-			snprintf(buf, bufn, "ans=%s%s%d", p, co, macosx_mouse_wheel_speed);
-			goto qry;
-		}
-		p += strlen("macwheel:");
-		macosx_mouse_wheel_speed = atoi(p);
-		rfbLog("set macosx_mouse_wheel_speed to: %d\n", macosx_mouse_wheel_speed);
-		goto done;
-	}
-	if (!strcmp(p, "macnoswap")) {
-		if (query) {
-			snprintf(buf, bufn, "ans=%s:%d", p, !macosx_swap23); goto qry;
-		}
-		rfbLog("remote_cmd: disable macosx_swap23.\n");
-		macosx_swap23 = 0;
-		goto done;
-	}
-	if (!strcmp(p, "macswap") || !strcmp(p, "nomacnoswap")) {
-		if (query) {
-			snprintf(buf, bufn, "ans=%s:%d", p, macosx_swap23); goto qry;
-		}
-		rfbLog("remote_cmd: enable macosx_swap23.\n");
-		macosx_swap23 = 1;
-		goto done;
-	}
-	if (!strcmp(p, "macnoresize")) {
-		if (query) {
-			snprintf(buf, bufn, "ans=%s:%d", p, !macosx_resize); goto qry;
-		}
-		rfbLog("remote_cmd: disable macosx_resize.\n");
-		macosx_resize = 0;
-		goto done;
-	}
-	if (!strcmp(p, "macresize") || !strcmp(p, "nomacnoresize")) {
-		if (query) {
-			snprintf(buf, bufn, "ans=%s:%d", p, macosx_resize); goto qry;
-		}
-		rfbLog("remote_cmd: enable macosx_resize.\n");
-		macosx_resize = 1;
-		goto done;
-	}
-	if (strstr(p, "maciconanim") == p) {
-		COLON_CHECK("maciconanim:")
-		if (query) {
-			snprintf(buf, bufn, "ans=%s%s%d", p, co, macosx_icon_anim_time);
-			goto qry;
-		}
-		p += strlen("maciconanim:");
-		macosx_icon_anim_time = atoi(p);
-		rfbLog("set macosx_icon_anim_time to: %d\n", macosx_icon_anim_time);
-		goto done;
-	}
-	if (!strcmp(p, "macmenu")) {
-		if (query) {
-			snprintf(buf, bufn, "ans=%s:%d", p, macosx_ncache_macmenu); goto qry;
-		}
-		rfbLog("remote_cmd: enable macosx_ncache_macmenu.\n");
-		macosx_ncache_macmenu = 1;
-		goto done;
-	}
-	if (!strcmp(p, "macnomenu") || !strcmp(p, "nomacmenu")) {
-		if (query) {
-			snprintf(buf, bufn, "ans=%s:%d", p, !macosx_ncache_macmenu); goto qry;
-		}
-		rfbLog("remote_cmd: disable macosx_ncache_macmenu.\n");
-		macosx_ncache_macmenu = 0;
-		goto done;
-	}
-	if (!strcmp(p, "macuskbd")) {
-		if (query) {
-			snprintf(buf, bufn, "ans=%s:%d", p, macosx_us_kbd); goto qry;
-		}
-		rfbLog("remote_cmd: enable macosx_us_kbd.\n");
-		macosx_us_kbd = 1;
-		goto done;
-	}
-	if (!strcmp(p, "nomacuskbd")) {
-		if (query) {
-			snprintf(buf, bufn, "ans=%s:%d", p, !macosx_us_kbd); goto qry;
-		}
-		rfbLog("remote_cmd: disable macosx_us_kbd.\n");
-		macosx_us_kbd = 0;
 		goto done;
 	}
 	if (strstr(p, "hack") == p) { /* skip-cmd-list */

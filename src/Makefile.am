@@ -53,16 +53,6 @@ x11vnc_SOURCES = \
 	keyboard.h \
 	linuxfb.c \
 	linuxfb.h \
-	macosx.c \
-	macosxCG.c \
-	macosxCG.h \
-	macosxCGP.c \
-	macosxCGP.h \
-	macosxCGS.c \
-	macosxCGS.h \
-	macosx.h \
-	macosx_opengl.c \
-	macosx_opengl.h \
 	nox11_funcs.h \
 	nox11.h \
 	options.c \

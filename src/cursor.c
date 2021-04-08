@@ -38,7 +38,6 @@ so, delete this exception statement from your version.
 #include "screen.h"
 #include "scan.h"
 #include "unixpw.h"
-#include "macosx.h"
 #include "xi2_devices.h"
 
 int xfixes_present = 0;
@@ -1267,12 +1266,6 @@ static int get_exact_cursor(int init) {
 		return -1;
 	}
 
-#ifdef MACOSX
-	if (macosx_console) {
-		return macosx_get_cursor();
-	}
-#endif
-
 	if (rawfb_vnc_reflect) {
 		int last_idx = (int) get_cursor_serial(1);
 		if (last_idx) {
@@ -1311,7 +1304,7 @@ static int get_exact_cursor(int init) {
 
 		/* retrieve the cursor info + pixels from server: */
 		xfc = XFixesGetCursorImage(dpy);
-		if (xfc) {
+		{
 			/* 2017-07-09, Stephan Fuhrmann: This fixes an implementation flaw for 64 bit systems.
 			 * The XFixesCursorImage structure says xfc->pixels is (unsigned long*) in the structure, but
 			 * the protocol spec says it's 32 bit per pixel
@@ -1379,11 +1372,6 @@ fprintf(stderr, "sc: %d  %d/%d %d - %d %d\n", serial, w, h, cbpp, xhot, yhot);
 			 * got a hit with an existing cursor,
 			 * use that one.
 			 */
-#ifdef MACOSX
-			if (now > curs_times[i] + 1) {
-				continue;
-			}
-#endif
 			last_cursor = curs_index[i];
 			curs_times[i] = now;
 			last_index = i;
@@ -1833,8 +1821,6 @@ void cursor_position(int x, int y, rfbClientPtr client) {
 		if (y >= dpy_y) y = dpy_y-1;
 	}
 
-	if (rotating)
-	    rotate_cursor_coords(x, y, &x, &y, screen->width, screen->height);
 
 	if(client == NULL) {
 	/* handle screen's master cursor */
@@ -1993,21 +1979,11 @@ int check_x11_pointer(void) {
 
 	if (unixpw_in_progress) return 0;
 
-#ifdef MACOSX
-	if (macosx_console) {
-		ret = macosx_get_cursor_pos(&root_x, &root_y);
-	} else {
-		RAWFB_RET(0)
-	}
-#else
-
 	RAWFB_RET(0)
 
 #   if NO_X11
 	return 0;
 #   endif
-
-#endif
 
 #ifdef HAVE_XI2
 #if ! NO_X11

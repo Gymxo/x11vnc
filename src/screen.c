@@ -53,8 +53,6 @@ so, delete this exception statement from your version.
 #include "sslhelper.h"
 #include "v4l.h"
 #include "linuxfb.h"
-#include "macosx.h"
-#include "macosxCG.h"
 #include "avahi.h"
 #include "solid.h"
 #include "inet.h"
@@ -109,7 +107,6 @@ static int choose_delay(double dt);
 int rawfb_reset = -1;
 int rawfb_dev_video = 0;
 int rawfb_vnc_reflect = 0;
-int rawfb_double_buffer = 0;
 
 /*
  * X11 and rfb display/screen related routines
@@ -725,13 +722,6 @@ void set_raw_fb_params(int restore) {
 			    "use_solid_bg\n");
 			use_solid_bg = 0;
 		}
-#ifndef MACOSX
-		if (raw_fb_str && strstr(raw_fb_str, "vnc") == raw_fb_str) {
-			;
-		} else {
-			multiple_cursors_mode = strdup("arrow");
-		}
-#endif
 	}
 	if (using_shm) {
 		if (verbose) rfbLog("  rawfb: turning off using_shm\n");
@@ -1030,11 +1020,6 @@ void do_new_fb(int reset_mem) {
 		settle_clients(1);
 	}
 
-#ifdef MACOSX
-	if (macosx_console) {
-		macosxCG_fini();
-	}
-#endif
 	if (reset_mem == 1) {
 		/* reset_mem == 2 is a hack for changing users... */
 		clean_shm(0);
@@ -1694,12 +1679,6 @@ if (db) fprintf(stderr, "initialize_raw_fb reset\n");
 		return NULL;
 	}
 
-#ifdef MACOSX
-	if (raw_fb_addr != NULL && macosx_console && raw_fb_addr == macosx_get_fb_addr()) {
-		raw_fb_addr = NULL;
-	}
-#endif
-
 	if (raw_fb_addr || raw_fb_seek) {
 		if (raw_fb_shm) {
 			shmdt(raw_fb_addr);
@@ -1943,25 +1922,14 @@ if (db) fprintf(stderr, "initialize_raw_fb reset\n");
 
 
 	/* +O offset */
-	char *end = NULL;
 	if ((q = strrchr(str, '+')) != NULL) {
-		end = q;
-		if (sscanf(q, "+%d", &raw_fb_offset) != 1) {
+		if (sscanf(q, "+%d", &raw_fb_offset) == 1) {
+			*q = '\0';
+		} else {
 			raw_fb_offset = 0;
 		}
 	}
-
-	/* #VWxVH virtual dimensions */
-	if ((q = strrchr(str, '#')) != NULL) {
-		if (q < end) end = q;
-		if (sscanf(q, "#%dx%d", &raw_fb_virt_x, &raw_fb_virt_y) != 2) {
-			raw_fb_virt_x = 0;
-			raw_fb_virt_y = 0;
-		}
-	}
-
-	if (end != NULL) *end = '\0';
-
+	/* :R/G/B masks */
 	if ((q = strrchr(str, ':')) != NULL) {
 		if (sscanf(q, ":%lx/%lx/%lx", &rm, &gm, &bm) == 3) {
 			*q = '\0';
@@ -2150,7 +2118,7 @@ if (db) fprintf(stderr, "initialize_raw_fb reset\n");
 	} else if (strstr(str, "map:") == str || strstr(str, "mmap:") == str
 	    || strstr(str, "file:") == str) {
 		/* map:/path/... or file:/path  */
-		int fd, do_mmap = 1, size, vsize = 0;
+		int fd, do_mmap = 1, size;
 		struct stat sbuf;
 
 		if (*str == 'f') {
@@ -2190,15 +2158,9 @@ if (db) fprintf(stderr, "initialize_raw_fb reset\n");
 			size = w*h*raw_fb_native_bpp/8 + raw_fb_offset;
 		} else if (xform24to32) {
 			size = w*h*24/8 + raw_fb_offset;
-		} else if (raw_fb_virt_x != 0 && raw_fb_virt_y != 0) {
-			size = w*h*b/8;
-			vsize = raw_fb_virt_x*raw_fb_virt_y*b/8;
-			rawfb_double_buffer = 1;
-			rfbLog("virtual size: %d", vsize);
 		} else {
 			size = w*h*b/8 + raw_fb_offset;
 		}
-
 		if (fstat(fd, &sbuf) == 0) {
 			if (S_ISREG(sbuf.st_mode)) {
 				if (0) size = sbuf.st_size;
@@ -2206,15 +2168,7 @@ if (db) fprintf(stderr, "initialize_raw_fb reset\n");
 				rfbLog("raw fb is non-regular file: %s\n", q);
 			}
 		}
-
-		if (do_macosx) {
-			raw_fb_addr = macosx_get_fb_addr();
-			raw_fb_mmap = size;
-			rfbLog("rawfb: macosx fb: %s\n", q);
-			rfbLog("   w: %d h: %d b: %d addr: %p sz: %d\n", w, h,
-			    b, raw_fb_addr, size);
-			last_mode = 0;
-		} else if (do_reflect) {
+		if (do_reflect) {
 			raw_fb_mmap = size;
 			rfbLog("rawfb: vnc fb: %s\n", q);
 			rfbLog("   w: %d h: %d b: %d addr: %p sz: %d\n", w, h,
@@ -2223,11 +2177,8 @@ if (db) fprintf(stderr, "initialize_raw_fb reset\n");
 
 		} else if (do_mmap) {
 #if LIBVNCSERVER_HAVE_MMAP
-			if (vsize != 0) {
-				raw_fb_addr = mmap(0, vsize, PROT_READ, MAP_SHARED, fd, 0);
-			} else {
-				raw_fb_addr = mmap(0, size, PROT_READ, MAP_SHARED, fd, 0);
-			}
+			raw_fb_addr = mmap(0, size, PROT_READ, MAP_SHARED,
+			    fd, 0);
 
 			if (raw_fb_addr == MAP_FAILED || raw_fb_addr == NULL) {
 				rfbLogEnable(1);
@@ -2244,13 +2195,8 @@ if (db) fprintf(stderr, "initialize_raw_fb reset\n");
 				raw_fb_mmap = size;
 
 				rfbLog("rawfb: mmap file: %s\n", q);
-				if (vsize != 0) {
-					rfbLog("   w: %d h: %d b: %d addr: %p sz: %d\n", w, h,
-						b, raw_fb_addr, vsize);
-				} else {
-					rfbLog("   w: %d h: %d b: %d addr: %p sz: %d\n", w, h,
-						b, raw_fb_addr, size);
-				}
+				rfbLog("   w: %d h: %d b: %d addr: %p sz: %d\n", w, h,
+				    b, raw_fb_addr, size);
 				last_mode = RAWFB_MMAP;
 			}
 #else
@@ -2289,11 +2235,6 @@ if (db) fprintf(stderr, "initialize_raw_fb reset\n");
 		 * Put cases here were we can determine that
 		 * raw_bytes_per_line != dpy_x*b/8
 		 */
-#ifdef MACOSX
-		if (do_macosx) {
-			raw_fb_bytes_per_line = macosxCG_CGDisplayBytesPerRow();
-		}
-#endif
 	}
 
 	raw_fb_image->bytes_per_line = dpy_x * b/8;
@@ -3161,15 +3102,6 @@ void initialize_screen(int *argc, char **argv, XImage *fb) {
 		} else {
 			rot_bytes_per_line = rfb_bytes_per_line;
 		}
-	}
-
-#ifndef NO_NCACHE
-	if (ncache > 0 && !nofb) {
-# ifdef MACOSX
-		if (! raw_fb_str || macosx_console) {
-# else
-		if (! raw_fb_str) {
-# endif
 			
 			char *new_fb;
 			int sz = fb->height * fb->bytes_per_line;
@@ -3189,8 +3121,6 @@ void initialize_screen(int *argc, char **argv, XImage *fb) {
 			height *= (ns);
 			ncache0 = ncache;
 		}
-	}
-#endif
 
 	if (cmap8to24) {
 		if (depth <= 8) {
@@ -4603,9 +4533,6 @@ void watch_loop(void) {
 			if (cursor_pos_updates) {
 				check_x11_pointer();
 			}
-#ifdef MACOSX
-			else check_x11_pointer();
-#endif
 			continue;
 		}
 		if (x11vnc_current < last_new_client + 0.5 && !all_clients_initialized()) {
@@ -4678,12 +4605,6 @@ void watch_loop(void) {
 			/* Now, for scanning and drawing soft cursors (i.e. writing to the framebuffer),
 			   make sure we're not sending any updates to clients (i.e. reading the framebuffer).
 			   Otherwise we get flicker! */
-
-			/* Update offset in case local framebuffer is double buffered */
-			if (rawfb_double_buffer) {
-				raw_fb_offset = rawfb_get_offset(&raw_fb_fd);
-			}
-
 			if(use_threads){
 			  rfbClientPtr cl;
 			  rfbClientIteratorPtr iter = rfbGetClientIterator(screen);

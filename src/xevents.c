@@ -45,7 +45,6 @@ so, delete this exception statement from your version.
 #include "connections.h"
 #include "unixpw.h"
 #include "cleanup.h"
-#include "macosx.h"
 #include "screen.h"
 #include "pm.h"
 #include "pointer.h"
@@ -1762,14 +1761,6 @@ void xcut_receive(char *text, int len, rfbClientPtr cl) {
 		INPUT_UNLOCK;
 		return;
 	}
-
-#ifdef MACOSX
-	if (macosx_console) {
-		macosx_set_sel(text, len);
-		INPUT_UNLOCK;
-		return;
-	}
-#endif
 
 	if (rawfb_vnc_reflect) {
 		vnc_reflect_send_cuttext(text, len);

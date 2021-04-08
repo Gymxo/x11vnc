@@ -47,7 +47,6 @@ so, delete this exception statement from your version.
 #include "linuxfb.h"
 #include "uinput.h"
 #include "scan.h"
-#include "macosx.h"
 #include "screen.h"
 #include "xi2_devices.h"
 
@@ -631,8 +630,6 @@ static void pipe_pointer(int mask, int x, int y, rfbClientPtr client) {
 		console_pointer_command(mask, x, y, client);
 	} else if (pipeinput_int == PIPEINPUT_UINPUT) {
 		uinput_pointer_command(mask, x, y, client);
-	} else if (pipeinput_int == PIPEINPUT_MACOSX) {
-		macosx_pointer_command(mask, x, y, client);
 	} else if (pipeinput_int == PIPEINPUT_VNC) {
 		vnc_reflect_send_pointer(x, y, mask);
 	}
@@ -764,7 +761,7 @@ void pointer_event(int mask, int x, int y, rfbClientPtr client) {
 	INPUT_LOCK;
 
 	if ((pipeinput_fh != NULL || pipeinput_int) && mask >= 0) {
-		pipe_pointer(mask, x, y, client);	/* MACOSX here. */
+		pipe_pointer(mask, x, y, client);	/* OSX here. */
 		if (! pipeinput_tee) {
 			if (! view_only || raw_fb) {	/* raw_fb hack */
 				got_user_input++;
@@ -1094,9 +1091,6 @@ if (0) fprintf(stderr, "initialize_pipeinput: %s -- %s\n", pipeinput_str, p);
 		}
 		pipeinput_int = PIPEINPUT_UINPUT;
 		initialize_uinput();
-		return;
-	} else if (strstr(p, "MACOSX") == p) {
-		pipeinput_int = PIPEINPUT_MACOSX;
 		return;
 	} else if (strstr(p, "VNC") == p) {
 		pipeinput_int = PIPEINPUT_VNC;

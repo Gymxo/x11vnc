@@ -39,7 +39,6 @@ so, delete this exception statement from your version.
 #include "xwrappers.h"
 #include "connections.h"
 #include "xrandr.h"
-#include "macosx.h"
 #include "win_utils.h"
 
 winattr_t *stack_list = NULL;
@@ -105,12 +104,6 @@ int valid_window(Window win, XWindowAttributes *attr_ret, int bequiet) {
 	if (win == None) {
 		return 0;
 	}
-
-#ifdef MACOSX
-	if (macosx_console) {
-		return macosx_valid_window(win, attr_ret);
-	}
-#endif
 
 	RAWFB_RET(0)
 
@@ -218,13 +211,7 @@ void snapshot_stack_list(int free_only, double allowed_age) {
 	stack_list_num = 0;
 	last_free = now;
 
-#ifdef MACOSX
-	if (! macosx_console) {
-		RAWFB_RET_VOID
-	}
-#else
 	RAWFB_RET_VOID
-#endif
 
 #if NO_X11 && !defined(MACOSX)
 	num = rc = i = j = 0;	/* compiler warnings */
@@ -358,12 +345,6 @@ Window query_pointer(Window start) {
 	Window r, c;	/* compiler warnings */
 	int wx, wy;
 	unsigned int mask;
-#endif
-
-#ifdef MACOSX
-	if (macosx_console) {
-		macosx_get_cursor_pos(&rx, &ry);
-	}
 #endif
 
 	RAWFB_RET(None)
